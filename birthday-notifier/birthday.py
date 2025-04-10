@@ -2,6 +2,7 @@ import requests
 import os
 import pprint
 from datetime import datetime
+import pytz
 from dotenv import load_dotenv
 import smtplib
 from email.message import EmailMessage
@@ -12,6 +13,11 @@ load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_TOKEN")
 EMAIL_SENDER = os.getenv("EMAIL_SENDER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+
+
+local_tz = pytz.timezone("America/Sao_Paulo")
+dt_local = datetime.now(local_tz)
+
 
 def post_request(url, params):
   """
@@ -84,7 +90,6 @@ def get_birthdays_today():
       Exception: If the request fails.  
   """
   
-  
   database_id = get_database_id()
   if not database_id:
       return []
@@ -92,12 +97,12 @@ def get_birthdays_today():
   url = f"https://api.notion.com/v1/databases/{database_id}/query"
 
   params = {
-      "filter": {
-          "property": "Aniversariante",
-          "checkbox": {
-              "equals": True
-          }
-      }
+    "filter": {
+        "property": "Aniversário",
+        "rich_text": {
+            "equals": dt_local.strftime("%d/%m")
+        }
+    }
   }
 
   data = post_request(url, params)["results"]
@@ -106,25 +111,28 @@ def get_birthdays_today():
   for result in data:
       properties = result["properties"]
       
-      name = properties["Nome"]["title"][0]["text"]["content"]
-      email = properties["Email"]["email"]
+      birthday = properties["Aniversário"]["formula"]["string"].split("/")
+      person_birth = properties["Data de nascimento"]["date"]["start"]
       
-      birthday = properties["Aniversário"]["date"]["start"]
-      birthday_date = datetime.strptime(birthday, "%Y-%m-%d").date()
-      today = datetime.today().date()
+      person_birth = datetime.strptime(person_birth, '%Y-%m-%d').date()
       
-      age = today.year - birthday_date.year
-
-      person = {
-        name: {
-          "email": email, 
-          "age": age
+      if int(birthday[0]) == dt_local.day and int(birthday[1]) == dt_local.month:
+        name = properties["Nome"]["title"][0]["text"]["content"]
+        email = properties["Email"]["email"]
+        
+        age = dt_local.year - person_birth.year
+        
+        person = {
+          name: {
+            "email": email, 
+            "age": age
+            }
           }
-        }
-      
-      birthdays_today.append(person)
+        
+
+        birthdays_today.append(person)
   
-  pprint.pp(  birthdays_today)
+  pprint.pp(birthdays_today)
 
   return birthdays_today
 
