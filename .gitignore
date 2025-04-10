@@ -1,2 +1,5 @@
 .env
 venv
+python
+*.zip
+teste.py

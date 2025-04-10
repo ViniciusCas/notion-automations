@@ -3,10 +3,15 @@ import os
 import pprint
 from datetime import datetime
 from dotenv import load_dotenv
+import smtplib
+from email.message import EmailMessage
+
 
 load_dotenv()
 
 NOTION_TOKEN = os.getenv("NOTION_TOKEN")
+EMAIL_SENDER = os.getenv("EMAIL_SENDER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
 def post_request(url, params):
   headers = {
@@ -35,7 +40,7 @@ def get_database_id():
   
   data = post_request(url, params)
   
-  databases = data["results"]
+  databases = data["resulparamsts"]
   if not databases:
       print("No databases found.")
       return None
@@ -67,18 +72,53 @@ def get_birthdays_today():
       properties = result["properties"]
       
       name = properties["Nome"]["title"][0]["text"]["content"]
+      email = properties["Email"]["email"]
+      
       birthday = properties["Aniversário"]["date"]["start"]
       birthday_date = datetime.strptime(birthday, "%Y-%m-%d").date()
-     
-      birthdays_today.append({name: birthday_date})
+      today = datetime.today().date()
+      
+      age = today.year - birthday_date.year
+
+      person = {
+        name: {
+          "email": email, 
+          "age": age
+          }
+        }
+      
+      birthdays_today.append(person)
   
+  pprint.pp(  birthdays_today)
+
   return birthdays_today
+
+def send_email(to, subject, body):
+    msg = EmailMessage()
+    msg["From"] = EMAIL_SENDER
+    msg["To"] = to
+    msg["Subject"] = subject
+    msg.set_content(body)
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        smtp.send_message(msg)
+        print(f"✅ Email sent to {to}")
 
 def send_message_to_email(birthdays):
   for birthday in birthdays:
-    for name, date in birthday.items():
-      formatted_date = date.strftime("%d %B")
-      print(f"Sending email to {name} with birthday on {formatted_date}")
+    for name, infos in birthday.items():
+      subject = f"🎉 Feliz Aniversário, {name}!"
+      
+      body= f"""Olá, {name},
+Parabéns pelos {infos["age"]} anos! 🎉
+Feliz aniversário! 🎂 Desejo a você um dia fantástico, cheio de alegria e risos!
+
+Muitas felicidades, Equipe Carrossel Caipira 🎠.
+      """
+          
+      send_email(to=infos["email"], subject=subject, body=body)
+
 
 
 if __name__ == "__main__":
@@ -87,3 +127,4 @@ if __name__ == "__main__":
     send_message_to_email(birthdays)
   else:
     print("No birthdays today.")
+    
